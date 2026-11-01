@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mini 3D RPG</title>
+<style>
+  *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9bd7ff;font-family:system-ui,sans-serif;touch-action:none}
+  #game{position:fixed;inset:0} canvas{display:block}
+  #hud{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;pointer-events:none;color:#fff;text-shadow:0 2px 4px #123;font-weight:700}
+  .panel{background:#10233dcc;border:1px solid #ffffff55;border-radius:12px;padding:9px 12px}
+  #hint{position:fixed;top:72px;left:50%;transform:translateX(-50%);background:#10233dcc;color:white;border-radius:10px;padding:8px 12px;font-size:12px;text-align:center;max-width:90%;pointer-events:none}
+  #controls{position:fixed;bottom:18px;left:0;right:0;display:flex;align-items:end;justify-content:space-between;padding:0 18px;pointer-events:none}
+  #stick{width:116px;height:116px;border-radius:50%;background:#ffffff35;border:2px solid #ffffff99;position:relative;pointer-events:auto;touch-action:none}
+  #nub{width:46px;height:46px;border-radius:50%;background:#ffffffc9;position:absolute;left:33px;top:33px;box-shadow:0 2px 8px #0004}
+  #attack{width:84px;height:84px;border:0;border-radius:50%;background:#ff633d;color:white;font-size:17px;font-weight:800;box-shadow:0 4px 0 #a92d1b;pointer-events:auto;touch-action:none}
+  #attack:active{transform:translateY(3px);box-shadow:0 1px 0 #a92d1b}
+  #message{position:fixed;bottom:148px;left:50%;transform:translateX(-50%);color:white;text-shadow:0 2px 4px #000;background:#10233dbb;border-radius:10px;padding:8px 12px;white-space:nowrap;font-size:13px}
+  #start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#123b;color:white;text-align:center;padding:24px}
+  #start .card{max-width:360px;background:#122c42ee;border:1px solid #ffffff44;border-radius:20px;padding:24px}
+  #start button{background:#ffd34e;border:0;border-radius:12px;padding:13px 22px;font-size:17px;font-weight:800;margin-top:12px}
+  small{opacity:.8}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+  <div class="panel">🧙 นักผจญภัย<br><span id="level">Lv. 1</span> · EXP <span id="exp">0/3</span></div>
+  <div class="panel">❤️ HP <span id="hp">100</span><br>⚔️ ATK 10</div>
+</div>
+<div id="hint">ลากวงกลมซ้ายเพื่อเดิน · กดโจมตีเมื่ออยู่ใกล้มอนสเตอร์</div>
+<div id="message">กำจัดมอนสเตอร์เพื่อรับ EXP!</div>
+<div id="controls">
+  <div id="stick"><div id="nub"></div></div>
+  <button id="attack">⚔️<br>โจมตี</button>
+</div>
+<div id="start"><div class="card"><h1>🌿 MINI 3D RPG</h1><p>โลกเริ่มต้นของนักผจญภัย</p><p>เดินสำรวจ ต่อสู้กับสไลม์ และเก็บ EXP เพื่อเพิ่มเลเวล</p><small>ต้นแบบนี้เล่นบนมือถือได้ แต่ยังไม่ใช่ระบบออนไลน์หลายคน</small><br><button id="play">เริ่มผจญภัย</button></div></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+const host=document.querySelector('#game');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x9bd7ff); scene.fog=new THREE.Fog(0x9bd7ff,22,58);
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,100); camera.position.set(0,7,10);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,1.7)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; host.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x50734b,2));
+const sun=new THREE.DirectionalLight(0xffffff,2.2); sun.position.set(-5,12,7); sun.castShadow=true; scene.add(sun);
+const mat=(color,roughness=1)=>new THREE.MeshStandardMaterial({color,roughness});
+const grass=mat(0x55ad62), dirt=mat(0x9b784f), trunk=mat(0x79502d), leaves=mat(0x25834a), gold=mat(0xffd34e), blue=mat(0x3489ff), dark=mat(0x25344d), slimeMat=mat(0x56f0b0);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),grass); ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+const grid=new THREE.GridHelper(100,50,0x3c9851,0x3c9851); grid.position.y=.012; grid.material.opacity=.14; grid.material.transparent=true; scene.add(grid);
+for(let i=0;i<48;i++){let x=(Math.random()-.5)*42,z=(Math.random()-.5)*42;if(Math.abs(x)<4&&Math.abs(z)<4)continue;
+ const tree=new THREE.Group();const a=new THREE.Mesh(new THREE.CylinderGeometry(.15,.22,1.2,6),trunk);a.position.y=.6;a.castShadow=true;tree.add(a);
+ const b=new THREE.Mesh(new THREE.ConeGeometry(.8,1.7,7),leaves);b.position.y=1.8;b.castShadow=true;tree.add(b);tree.position.set(x,0,z);scene.add(tree)}
+for(let i=0;i<22;i++){let x=(Math.random()-.5)*36,z=(Math.random()-.5)*36;let rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.25+Math.random()*.35),dirt);rock.position.set(x,.2,z);rock.castShadow=true;scene.add(rock)}
+const player=new THREE.Group();
+const body=new THREE.Mesh(new THREE.BoxGeometry(.65,.8,.45),blue);body.position.y=.85;body.castShadow=true;player.add(body);
+const head=new THREE.Mesh(new THREE.SphereGeometry(.3,12,10),mat(0xffd1a3));head.position.y=1.48;head.castShadow=true;player.add(head);
+const hair=new THREE.Mesh(new THREE.SphereGeometry(.31,12,8,0,Math.PI*2,0,Math.PI*.55),dark);hair.position.y=1.58;player.add(hair);
+const sword=new THREE.Mesh(new THREE.BoxGeometry(.12,.75,.12),gold);sword.position.set(.48,.85,-.1);sword.rotation.z=-.45;player.add(sword);scene.add(player);
+const monsters=[];
+for(let i=0;i<7;i++){const m=new THREE.Group();const s=new THREE.Mesh(new THREE.SphereGeometry(.48,14,10),slimeMat);s.scale.y=.72;s.position.y=.35;s.castShadow=true;m.add(s);
+ const eyeMat=mat(0x143d38);for(let j=0;j<2;j++){let e=new THREE.Mesh(new THREE.SphereGeometry(.055,8,8),eyeMat);e.position.set(j? .16:-.16,.43,-.4);m.add(e)}
+ m.position.set((Math.random()-.5)*18,0,(Math.random()-.5)*18);m.userData={hp:30,alive:true,phase:Math.random()*5};scene.add(m);monsters.push(m)}
+const xpLabel=document.querySelector('#exp'),levelLabel=document.querySelector('#level'),hpLabel=document.querySelector('#hp'),message=document.querySelector('#message');
+let xp=0,level=1,hp=100,attackFlash=0,joy={x:0,y:0},started=false;
+function updateHud(){xpLabel.textContent=`${xp}/${level*3}`;levelLabel.textContent='Lv. '+level;hpLabel.textContent=hp}
+function say(t){message.textContent=t}
+const stick=document.querySelector('#stick'),nub=document.querySelector('#nub');let activePointer=null;
+function moveStick(e){const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy,len=Math.hypot(dx,dy),max=35;if(len>max){dx=dx/len*max;dy=dy/len*max}joy.x=dx/max;joy.y=dy/max;nub.style.left=(33+dx)+'px';nub.style.top=(33+dy)+'px'}
+stick.addEventListener('pointerdown',e=>{activePointer=e.pointerId;stick.setPointerCapture(e.pointerId);moveStick(e)});
+stick.addEventListener('pointermove',e=>{if(e.pointerId===activePointer)moveStick(e)});
+function resetStick(){activePointer=null;joy={x:0,y:0};nub.style.left='33px';nub.style.top='33px'}
+stick.addEventListener('pointerup',resetStick);stick.addEventListener('pointercancel',resetStick);
+document.querySelector('#attack').addEventListener('pointerdown',e=>{e.preventDefault();if(!started)return;attackFlash=.25;let target=null,best=2.7;
+ for(const m of monsters){if(!m.userData.alive)continue;let d=m.position.distanceTo(player.position);if(d<best){best=d;target=m}}
+ if(target){target.userData.hp-=10+Math.floor((level-1)*2);target.scale.set(1.25,.7,1.25);setTimeout(()=>target.scale.set(1,1,1),100);
+ if(target.userData.hp<=0){target.userData.alive=false;scene.remove(target);xp++;say('กำจัดสไลม์ได้! +1 EXP');if(xp>=level*3){xp=0;level++;hp=100;say('✨ เลเวลอัป! ตอนนี้ Lv. '+level)}updateHud();setTimeout(()=>{const m=new THREE.Group();const s=new THREE.Mesh(new THREE.SphereGeometry(.48,14,10),slimeMat);s.scale.y=.72;s.position.y=.35;m.add(s);for(let j=0;j<2;j++){let e=new THREE.Mesh(new THREE.SphereGeometry(.055,8,8),dark);e.position.set(j?.16:-.16,.43,-.4);m.add(e)}m.position.set(player.position.x+(Math.random()-.5)*12,0,player.position.z+(Math.random()-.5)*12);m.userData={hp:30,alive:true,phase:Math.random()*5};scene.add(m);monsters.push(m)},1800)}
+ else say('โจมตีโดน! มอนสเตอร์ HP '+target.userData.hp)}
+ else say('เข้าไปใกล้มอนสเตอร์ก่อน!')});
+document.querySelector('#play').addEventListener('click',()=>{started=true;document.querySelector('#start').style.display='none';say('ออกสำรวจโลกได้เลย!')});
+const clock=new THREE.Clock();
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
+ if(started){const speed=4.2;let dx=joy.x,dz=joy.y;if(Math.hypot(dx,dz)>.1){player.position.x+=dx*speed*dt;player.position.z+=dz*speed*dt;player.rotation.y=Math.atan2(dx,dz);body.position.y=.85+Math.sin(t*13)*.04}else body.position.y=.85;
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-23,23);player.position.z=THREE.MathUtils.clamp(player.position.z,-23,23);
+ for(const m of monsters){if(!m.userData.alive)continue;m.position.y=Math.sin(t*3+m.userData.phase)*.08;const d=m.position.distanceTo(player.position);if(d<7){let dir=new THREE.Vector3().subVectors(player.position,m.position);dir.y=0;if(d>1.4)m.position.addScaledVector(dir.normalize(),dt*.55);else if(Math.random()<dt*.25){hp=Math.max(0,hp-2);hpLabel.textContent=hp;if(hp===0){hp=100;hpLabel.textContent=hp;player.position.set(0,0,0);say('คุณฟื้นคืนชีพแล้ว!')}}}}
+ }
+ const target=new THREE.Vector3(player.position.x,0,player.position.z);camera.position.lerp(new THREE.Vector3(player.position.x,7,player.position.z+9),.08);camera.lookAt(target.x,target.y+.6,target.z);renderer.render(scene,camera)}
+animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script>
+</body>
+                                                                        </html>
